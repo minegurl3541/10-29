@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>For My Universe</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;500&family=Poppins:ital,wght@0,300;0,400;1,300&display=swap');
+
+        :root {
+            --text-dark: #2c3e50;
+            --rose-accent: #ff6b81;
+            --font-jp: 'Noto Serif JP', serif;
+            --font-main: 'Poppins', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            perspective: 1200px;
+        }
+
+        /* --- GLOBAL PARTICLE ENGINE --- */
+        #particle-canvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        #bg-audio { display: none; }
+
+        .viewport {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(180deg, #1a2a6c 0%, #b21f1f 50%, #fdbb2d 100%);
+            transition: background 1.5s ease-in-out;
+        }
+
+        .page {
+            position: absolute;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateZ(-100px);
+            transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1), transform 1s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 20px;
+            z-index: 3;
+        }
+
+        .page.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateZ(0);
+        }
+
+        .next-btn {
+            position: absolute;
+            bottom: 45px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: #fff;
+            padding: 12px 40px;
+            font-size: 13px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            border-radius: 40px;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .next-btn.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* ==========================================
+           PAGE 1: BUTTERY SMOOTH LETTER OPENING
+           ========================================== */
+        .mailbox {
+            position: relative;
+            width: 280px; height: 180px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 0 0 16px 16px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+            margin-top: 40px;
+        }
+
+        .mailbox-flap {
+            position: absolute;
+            top: 0; left: 0; width: 0; height: 0;
+            border-top: 95px solid #e2e2e2;
+            border-left: 140px solid transparent;
+            border-right: 140px solid transparent;
+            transform-origin: top;
+            /* Smooth hardware-accelerated flip */
+            transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 5;
+        }
+
+        .page.active .mailbox-flap {
+            transform: rotateX(180deg);
+            z-index: 1;
+        }
+
+        .parchment-card {
+            position: absolute;
+            width: 250px; height: 160px;
+            background: #ffffff;
+            bottom: 10px; left: 15px;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            z-index: 3;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            /* Waits exactly 0.5s for flap to open before sliding out smoothly */
+            transform: translateY(0);
+            transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.5s;
+        }
+
+        .page.active .parchment-card {
+            transform: translateY(-120px);
+        }
+
+        .parchment-card h2 { font-family: var(--font-jp); font-size: 20px; color: var(--rose-accent); margin-bottom: 8px; }
+        .parchment-card p { font-size: 13px; text-align: center; color: var(--text-dark); font-style: italic; }
+
+        /* ==========================================
+           PAGE 2: SCRAPBOOK DESK
+           ========================================== */
+        #page2 { background: #fdfbfb; }
+        .desk-surface {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 400px; padding: 20px;
+        }
+        .desk-card { height: 160px; perspective: 1000px; cursor: pointer; }
+        .desk-card-inner {
+            position: relative; width: 100%; height: 100%;
+            transform-style: preserve-3d; transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .desk-card.flipped .desk-card-inner { transform: rotateY(180deg); }
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            border-radius: 10px; border: 4px solid #fff; overflow: hidden;
+        }
+        .card-front img { width: 100%; height: 100%; object-fit: cover; }
+        .card-back {
+            background: #fff; transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
+            padding: 10px; text-align: center; font-size: 12px; color: #333; font-family: var(--font-jp);
+        }
+
+        /* ==========================================
+           PAGE 3: THE TRUE ANIME SEQUENCE
+           ========================================== */
+        #page3 { padding: 0; background: #000; }
+        
+        .anime-sequence-container {
+            position: relative; width: 100%; height: 100%; overflow: hidden; background: #000;
+        }
+
+        /* Background slowly pans to simulate camera movement */
+        .anime-bg {
+            position: absolute; width: 120%; height: 120%; top: -10%; left: -10%;
+            object-fit: cover; filter: brightness(0.7); opacity: 0;
+            transform: scale(1) translateX(0);
+        }
+        
+        /* The animation classes applied via JavaScript */
+        .anime-bg.play-scene {
+            animation: panCamera 12s linear forwards, fadeInBg 2s ease forwards;
+        }
+
+        @keyframes panCamera { to { transform: scale(1.1) translateX(-5%); } }
+        @keyframes fadeInBg { to { opacity: 1; } }
+
+        /* The Cinematic Dialogue Overlays */
+        .anime-text {
+            position: absolute; width: 100%; text-align: center;
+            font-family: var(--font-jp); font-size: 24px; color: #fff;
+            text-shadow: 0 2px 15px rgba(0,0,0,0.8);
+            opacity: 0; top: 40%;
+        }
+
+        .girl-text { transform: translateX(-20px); letter-spacing: 2px; }
+        .boy-text { transform: scale(1.5); font-weight: bold; color: #ffebf0; }
+
+        /* The intense sunflare flash effect */
+        .morning-flare {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #fff 0%, rgba(255, 230, 150, 0.8) 40%, transparent 80%);
+            mix-blend-mode: screen; opacity: 0; pointer-events: none;
+        }
+
+        /* Camera Shake Effect */
+        .camera-shake { animation: intenseShake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes intenseShake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+
+        /* Page 3 Buttons */
+        .p3-actions {
+            position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: center; gap: 20px;
+            opacity: 0; transform: translateY(20px); transition: all 1s ease; z-index: 10; pointer-events: none;
+        }
+        .p3-actions.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .p3-btn {
+            background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); border: 1px solid #fff;
+            color: #fff; padding: 10px 30px; border-radius: 20px; font-size: 14px; cursor: pointer;
+        }
+
+        /* ==========================================
+           PAGE 4: HANGING FRAMES
+           ========================================== */
+        #page4 { background: linear-gradient(135deg, #141923 0%, #1e2638 100%); }
+        .gallery-wall { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; padding: 10px; }
+        .hanging-frame {
+            background: #fff; padding: 5px 5px 15px 5px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            opacity: 0; transform: translateY(-30px); transition: all 0.8s ease;
+        }
+        .hanging-frame img { width: 100%; height: 80px; object-fit: cover; }
+        .lyric-line { font-size: 9px; text-align: center; color: #333; margin-top: 5px; font-style: italic; }
+        
+        .page.active .hanging-frame:nth-child(1) { opacity: 1; transform: translateY(0) rotate(-3deg); transition-delay: 0.1s; }
+        .page.active .hanging-frame:nth-child(2) { opacity: 1; transform: translateY(15px) rotate(4deg); transition-delay: 0.3s; }
+        .page.active .hanging-frame:nth-child(3) { opacity: 1; transform: translateY(-5px) rotate(-2deg); transition-delay: 0.5s; }
+        .page.active .hanging-frame:nth-child(4) { opacity: 1; transform: translateY(10px) rotate(5deg); transition-delay: 0.7s; }
+        .page.active .hanging-frame:nth-child(5) { opacity: 1; transform: translateY(-10px) rotate(-4deg); transition-delay: 0.9s; }
+        .page.active .hanging-frame:nth-child(6) { opacity: 1; transform: translateY(5px) rotate(2deg); transition-delay: 1.1s; }
+        .page.active .hanging-frame:nth-child(7) { opacity: 1; transform: translateY(-12px) rotate(-5deg); transition-delay: 1.3s; }
+        .page.active .hanging-frame:nth-child(8) { opacity: 1; transform: translateY(8px) rotate(3deg); transition-delay: 1.5s; }
+
+        /* ==========================================
+           PAGE 5: THE ANIMATED DREAM DISSOLVE
+           ========================================== */
+        #page5 { background: #000; padding: 0; }
+        
+        .dream-sequence-container {
+            position: relative; width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Scene 1: Reality (Sleeping on desk) */
+        .reality-layer {
+            position: absolute; width: 100%; height: 100%; object-fit: cover;
+            filter: grayscale(80%) brightness(0.4); opacity: 0; transition: opacity 1s ease, filter 3s ease;
+        }
+        
+        /* Scene 2: The Dream (Smiling picture) */
+        .dream-layer {
+            position: absolute; width: 100%; height: 100%; object-fit: cover;
+            opacity: 0; transform: scale(1.2); transition: opacity 3s ease, transform 10s linear;
+        }
+
+        .dream-overlay-text {
+            position: absolute; bottom: 15%; width: 100%; text-align: center;
+            opacity: 0; transition: opacity 2s ease; z-index: 5;
+        }
+        .dream-overlay-text h3 { font-family: var(--font-jp); font-size: 24px; text-shadow: 0 0 15px rgba(0,0,0,0.8); }
+
+        /* CSS-based Sparkles for the dream */
+        .sparkle-container { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+        .sparkle-fx {
+            position: absolute; background: #fff; border-radius: 50%; box-shadow: 0 0 10px 2px #ffc107;
+            opacity: 0; animation: floatSparkle 3s infinite ease-in-out;
+        }
+        @keyframes floatSparkle {
+            0% { opacity: 0; transform: translateY(0) scale(0); }
+            50% { opacity: 1; transform: translateY(-30px) scale(1); }
+            100% { opacity: 0; transform: translateY(-60px) scale(0); }
+        }
+
+        /* The White Flash Transition */
+        .white-flash {
+            position: absolute; width: 100%; height: 100%; background: #fff;
+            opacity: 0; pointer-events: none; z-index: 10;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Native Audio -->
+    <audio id="bg-audio" loop autoplay preload="auto">
+        <source src="https://files.catbox.moe/ol3k2r.mp3" type="audio/mpeg">
+    </audio>
+
+    <div class="viewport" id="master-view">
+        <canvas id="particle-canvas"></canvas>
+
+        <!-- PAGE 1 -->
+        <div class="page active" id="page1">
+            <h1 style="font-family: var(--font-jp); font-size: 26px; font-weight:300; letter-spacing:2px; margin-bottom:10px;">To My Favorite Person</h1>
+            <div class="mailbox">
+                <div class="mailbox-flap"></div>
+                <div class="parchment-card">
+                    <h2>I am Sorry...</h2>
+                    <p>"I hate that I became the reason behind your heavy heart. Please take a small walk with me."</p>
+                </div>
+            </div>
+            <button class="next-btn" id="btn-p1" onclick="shiftPage(1, 2)">Open</button>
+        </div>
+
+        <!-- PAGE 2 -->
+        <div class="page" id="page2">
+            <div class="desk-surface">
+                <div class="desk-card" onclick="flipCard(this)"><div class="desk-card-inner">
+                    <div class="card-front"><img src="https://i.ibb.co/sk5jsv4/IMG-9466.jpg"></div>
+                    <div class="card-back">Remember when we talked for hours?</div>
+                </div></div>
+                <div class="desk-card" onclick="flipCard(this)"><div class="desk-card-inner">
+                    <div class="card-front"><img src="https://i.ibb.co/BKZTTdL4/IMG-2256.jpg"></div>
+                    <div class="card-back">Your smile is my safe place.</div>
+                </div></div>
+                <div class="desk-card" onclick="flipCard(this)"><div class="desk-card-inner">
+                    <div class="card-front"><img src="https://i.ibb.co/dsJsT8Zk/98ba4001-e267-49c5-83e9-69a4979e1ed1.jpg"></div>
+                    <div class="card-back">I hate myself for putting shadows here.</div>
+                </div></div>
+                <div class="desk-card" onclick="flipCard(this)"><div class="desk-card-inner">
+                    <div class="card-front"><img src="https://i.ibb.co/GQyJTVPq/939b3a43-cfeb-4486-a9b0-dc0daca955eb.jpg"></div>
+                    <div class="card-back">Please give me a chance.</div>
+                </div></div>
+            </div>
+            <button class="next-btn" id="btn-p2" onclick="shiftPage(2, 3)">Keep Walking</button>
+        </div>
+
+        <!-- PAGE 3: FULLY ANIMATED SEQUENCE -->
+        <div class="page" id="page3">
+            <div class="anime-sequence-container" id="anime-stage">
+                <!-- Background Image -->
+                <img src="https://i.ibb.co/5W5z6Nkd/IMG-5851.jpg" class="anime-bg" id="anime-img">
+                
+                <!-- Dialogue Elements -->
+                <div class="anime-text girl-text" id="t-girl">"Leave me..."</div>
+                <div class="anime-text boy-text" id="t-boy">"Never."</div>
+                
+                <!-- Lighting Effect -->
+                <div class="morning-flare" id="anime-flare"></div>
+
+                <!-- Interactive Buttons -->
+                <div class="p3-actions" id="anime-btns">
+                    <button class="p3-btn" onclick="alert('Thank you for staying...')">Reply</button>
+                    <button class="p3-btn" onclick="shiftPage(3, 4)">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 4 -->
+        <div class="page" id="page4">
+            <h2 style="font-family: var(--font-jp); font-size: 18px; margin-bottom: 20px;">I hold onto every echo...</h2>
+            <div class="gallery-wall">
+                <div class="hanging-frame"><img src="https://i.ibb.co/2YL59CnM/498e307b-bad3-4b7c-9773-b6be69d21163.jpg"><div class="lyric-line">Every step I take</div></div>
+                <div class="hanging-frame"><img src="https://i.ibb.co/SXtrHYb9/3293e8ec-0ace-4f9b-a5b8-198f2957542e.jpg"><div class="lyric-line">Every breath I draw</div></div>
+                <div class="hanging-frame"><img src="https://i.ibb.co/KzwVVD4t/69866bed-8a0e-4f29-9d1c-1984055ea4c6.jpg"><div class="lyric-line">Leads right back</div></div>
+                <div class="hanging-frame"><img src="https://i.ibb.co/mfk8qvf/95648506-2903-4483-8b76-ee72e99a6cf3.jpg"><div class="lyric-line">To where you are</div></div>
+                <div class="hanging-frame"><img src="https://i.ibb.co/wF0PMsTf/IMG-8587.jpg"><div class="lyric-line">Forgive me love</div></div>
+                <div class="hanging-frame"><img src="https://i.ibb.co/QvQ5zrGd/IMG-8588.jpg"><div class="lyric-line">Fix this heart</div></div>
+                <div class="hanging-frame"><img src="https://i.ibb.co/TBgp5mvv/IMG-6771.jpg"><div class="lyric-line">Don't let us fall</div></div>
+                <div class="hanging-frame"><img src="https://i.ibb.co/nNbyZVxh/IMG-9014.png"><div class="lyric-line">Apart...</div></div>
+            </div>
+            <button class="next-btn" id="btn-p4" onclick="shiftPage(4, 5)">Look at Me</button>
+        </div>
+
+        <!-- PAGE 5: THE ANIMATED DREAM DISSOLVE -->
+        <div class="page" id="page5">
+            <div class="dream-sequence-container">
+                <img src="https://i.ibb.co/KpcFSb06/IMG-9097.jpg" class="reality-layer" id="reality-pic">
+                <img src="https://i.ibb.co/7dzYBmV0/IMG-9099.jpg" class="dream-layer" id="dream-pic">
+                
+                <div class="white-flash" id="flash-fx"></div>
+                <div class="sparkle-container" id="sparkles"></div>
+                
+                <div class="dream-overlay-text" id="dream-text">
+                    <h3>Looking into your eyes</h3>
+                    <p style="font-size: 13px; font-weight:300; margin-top:5px; color:#ffb6c1;">Where everything makes sense again.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Canvas Particle Engine (Cherry Blossoms)
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let petalSpeedMultiplier = 1; // Used to speed up petals during anime scene
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        class Petal {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * -canvas.height;
+                this.size = Math.random() * 5 + 5;
+                this.speedY = Math.random() * 1.5 + 1;
+                this.speedX = Math.random() * 1.5 - 0.75;
+                this.rot = Math.random() * 360;
+                this.color = `rgba(255, ${Math.random()*50+150}, ${Math.random()*50+180}, 0.8)`;
+            }
+            update() {
+                this.y += this.speedY * petalSpeedMultiplier;
+                this.x += this.speedX * petalSpeedMultiplier;
+                this.rot += 1.5;
+                if (this.y > canvas.height) { this.y = -20; this.x = Math.random() * canvas.width; }
+            }
+            draw() {
+                ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rot * Math.PI / 180);
+                ctx.fillStyle = this.color; ctx.beginPath(); ctx.ellipse(0, 0, this.size, this.size/1.5, 0, 0, 2*Math.PI);
+                ctx.fill(); ctx.restore();
+            }
+        }
+        for(let i=0; i<40; i++) particles.push(new Petal());
+        function animate() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // Audio & Navigation
+        const audio = document.getElementById('bg-audio');
+        function tryAudio() { if(audio.paused) audio.play().catch(()=>{}); }
+
+        setTimeout(() => { document.getElementById('btn-p1').classList.add('visible'); }, 2000);
+
+        function shiftPage(curr, next) {
+            tryAudio();
+            document.getElementById(`page${curr}`).classList.remove('active');
+            
+            const view = document.getElementById('master-view');
+            if (next === 2) view.style.background = '#fdfbfb';
+            if (next === 4) view.style.background = '#141923';
+
+            setTimeout(() => {
+                document.getElementById(`page${next}`).classList.add('active');
+                if(next === 2) setTimeout(() => { document.getElementById('btn-p2').classList.add('visible'); }, 10000);
+                if(next === 3) playAnimeSequence();
+                if(next === 4) setTimeout(() => { document.getElementById('btn-p4').classList.add('visible'); }, 6000);
+                if(next === 5) playDreamSequence();
+            }, 500);
+        }
+
+        function flipCard(card) {
+            card.classList.toggle('flipped');
+            setTimeout(() => { card.classList.remove('flipped'); }, 4000);
+        }
+
+        /* --- THE SCRIPTED ANIME SEQUENCE (PAGE 3) --- */
+        function playAnimeSequence() {
+            const bg = document.getElementById('anime-img');
+            const gText = document.getElementById('t-girl');
+            const bText = document.getElementById('t-boy');
+            const flare = document.getElementById('anime-flare');
+            const stage = document.getElementById('anime-stage');
+            const btns = document.getElementById('anime-btns');
+
+            // 1. Start background pan
+            bg.classList.add('play-scene');
+            
+            // 2. Girl speaks (slow fade in)
+            setTimeout(() => {
+                gText.style.transition = "opacity 2s ease, transform 3s ease";
+                gText.style.opacity = "1";
+                gText.style.transform = "translateX(0)";
+            }, 1500);
+
+            // 3. Boy interrupts (Sudden impact)
+            setTimeout(() => {
+                gText.style.opacity = "0"; // Girl text vanishes
+                
+                // Camera shake effect
+                stage.classList.add('camera-shake');
+                
+                // Boy text slams in
+                bText.style.transition = "opacity 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+                bText.style.opacity = "1";
+                bText.style.transform = "scale(1)";
+                
+                // Massive morning sunflare flashes
+                flare.style.transition = "opacity 0.5s ease";
+                flare.style.opacity = "1";
+                
+                // Petals suddenly speed up to simulate emotional wind rush
+                petalSpeedMultiplier = 3.5;
+            }, 5000);
+
+            // 4. Resolve scene and show buttons
+            setTimeout(() => {
+                flare.style.transition = "opacity 3s ease";
+                flare.style.opacity = "0.3"; // Flare settles down
+                petalSpeedMultiplier = 1; // Wind dies down
+                btns.classList.add('show');
+            }, 7500);
+        }
+
+        /* --- THE SCRIPTED DREAM DISSOLVE (PAGE 5) --- */
+        function playDreamSequence() {
+            const reality = document.getElementById('reality-pic');
+            const dream = document.getElementById('dream-pic');
+            const flash = document.getElementById('flash-fx');
+            const dText = document.getElementById('dream-text');
+            const sparkles = document.getElementById('sparkles');
+
+            // 1. Fade in the sad reality desk picture
+            setTimeout(() => {
+                reality.style.opacity = "1";
+            }, 500);
+
+            // 2. The screen blurs and flashes to white (the transition)
+            setTimeout(() => {
+                reality.style.filter = "grayscale(80%) brightness(0.4) blur(10px)";
+                flash.style.transition = "opacity 1.5s ease-in";
+                flash.style.opacity = "1";
+            }, 4500);
+
+            // 3. Emerge from the flash into the smiling dream picture
+            setTimeout(() => {
+                reality.style.opacity = "0";
+                dream.style.opacity = "1";
+                dream.style.transform = "scale(1)"; // Starts the slow zoom-in
+                flash.style.transition = "opacity 2s ease-out";
+                flash.style.opacity = "0";
+                
+                // Generate CSS sparkles dynamically
+                for(let i=0; i<15; i++) {
+                    let s = document.createElement('div');
+                    s.className = 'sparkle-fx';
+                    s.style.left = Math.random() * 90 + 5 + '%';
+                    s.style.top = Math.random() * 90 + 5 + '%';
+                    s.style.width = s.style.height = (Math.random() * 4 + 2) + 'px';
+                    s.style.animationDelay = (Math.random() * 2) + 's';
+                    sparkles.appendChild(s);
+                }
+            }, 6000);
+
+            // 4. Fade in the final emotional text over the dream
+            setTimeout(() => {
+                dText.style.opacity = "1";
+            }, 8000);
+        }
+    </script>
+</body>
+</html>
